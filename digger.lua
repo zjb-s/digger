@@ -2,6 +2,8 @@ node = include('lib/node')
 context_window = include('lib/context_window')
 key_input = include('lib/key_input')
 screen_graphics = include('lib/screen_graphics')
+prms = include('lib/prms')
+nb = include('lib/nb/lib/nb')
 mu = require 'musicutil'
 
 OFF=0
@@ -10,7 +12,7 @@ MED=5
 HIGH=12
 
 flash = LOW
-root = {}
+root = prms.loaded_table and prms.loaded_table or {}
 all = {}
 target = {{},{},{}}
 playhead = {}
@@ -21,16 +23,23 @@ entering_text = false
 math_symbols = {'=','+','-','*','/'}
 post_buffer = 'digger @zbs'
 
-function add_params()
-	params:add_option('view_attr','view_attr',view_attrs,1)
+params.action_write = function(filename, name, pset_number)
+	prms:action_write(filename,name,pset_number)
+end
+
+params.action_read = function(filename, silent, pset_number)
+	prms:action_read(filename,silent,pset_number)
+end
+
+params.action_delete = function(filename, name, pset_number)
+	prms:action_delete(filename,name,pset_number)
 end
 
 function post(str)
 	post_buffer = str
 end
 
-function init()
-	add_params()
+function init_root()
 	root = node:new()
 	root.parent = 'none'
 	for i=1,3 do 
@@ -39,7 +48,13 @@ function init()
 			root.children[i]:add_child()
 		end
 	end
-	target[1] = root:child()
+end
+
+function init()
+	nb:init()
+	prms:add()
+	init_root()
+	target[1] = root
 	target[2] = target[1]:child()
 	target[3] = nil
 	clock.run(stepper)
@@ -127,6 +142,8 @@ function enc(n,d)
 end
 
 function key(n,d)
+	if d == 0 then return end
+
 	if n == 1 then 
 
 	elseif n == 2 then
