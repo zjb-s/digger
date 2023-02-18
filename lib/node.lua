@@ -24,6 +24,12 @@ function Node:new(args)
   return i
 end
 
+-- function Node:load_data_from_table(tbl)
+--   self:all_children(function(v)
+    
+--   end)
+-- end
+
 function Node:delta_attr(attr,delta)
   self:set_attr(attr, self:get_attr(attr) + delta)
 end
@@ -73,7 +79,7 @@ function Node:get_copy()
   local r = self:new{
 		note = self.note
 	,	velocity = self.velocity
-	,	duration = self.duation
+	,	duration = self.duration
 	,	counter = 1
 	,	children = {}
 	,	pos = 1
@@ -105,26 +111,49 @@ function Node:remove_child(ix)
 end
 
 function Node:advance()
-  if #self.children > 0 then
-    -- print(self.child,self.advance)
-    -- print(self.id)
-    local result, reset = self:child():advance()
-    if not reset then return result, false end
-    if self:child().counter <= self:child().duration-1 then
-      self:child().counter = self:child().counter + 1
-    else
-      self:child().counter = 1
-      self.pos = self.pos + 1
-    end
-    if self.pos > #self.children then
-      self.pos = 1
-      return result, true
-    end
-    return result, false
+  if self:is_leaf() then
+    return self, true, self.counter==1 
   else
-    return self, true
+    local result, reset, play = self:child():advance()
+    if reset then
+      if self:child().counter < self:child().duration then
+        self:child().counter = self:child().counter + 1
+      else
+        self:child().counter = 1
+        self.pos = self.pos + 1
+      end
+      if self.pos > #self.children then
+        self.pos = 1
+        return result, true, play
+      else
+        return result, false, play
+      end
+    else
+      return result, false, play
+    end
   end
 end
+
+-- function Node:advance()
+--   if #self.children > 0 then
+--     print(self.id,self.child,self.advance)
+--     local result, reset = self:child():advance()
+--     if not reset then return result, false end
+--     if self:child().counter <= self:child().duration then
+--       self:child().counter = self:child().counter + 1
+--     else
+--       self:child().counter = 1
+--       self.pos = self.pos + 1
+--     end
+--     -- if self.pos > #self.children then
+--     --   self.pos = 1
+--     --   return result, true
+--     -- end
+--     return result, false
+--   else
+--     return self, true
+--   end
+-- end
 
 
 return Node

@@ -22,6 +22,7 @@ tbuf = ''
 entering_text = false
 math_symbols = {'=','+','-','*','/'}
 post_buffer = 'digger @zbs'
+pset_filename = ''
 
 params.action_write = function(filename, name, pset_number)
 	prms:action_write(filename,name,pset_number)
@@ -64,11 +65,15 @@ end
 
 function stepper()
 	while true do
-		clock.sleep(1/4)
+		clock.sync(1/4)
 		
 		root:all_children(function(x) x.is_playhead = false end)
-		-- for _,v in pairs(all) do v.is_playhead = false end
-		playhead = root:advance()
+		local playhead, reset, play = root:advance()
+		print(play)
+		if play then
+			local player = params:lookup_param('voice'):get_player() 
+			player:play_note(playhead.note, playhead.velocity/127, 0.01)
+		end
 
 		local t = playhead
 		while t ~= root do
@@ -107,6 +112,9 @@ function enter_command(input_str)
 		elseif symbol == '=' then
 			target[2]:set_attr(nil,n)
 		end
+	elseif str == 'save' or str == 'w' or str == 'write' then
+		-- params:write(pset_filename)
+		-- todo
 	else
 		entering_text = true
 		post('not a command')
