@@ -18,6 +18,7 @@ function Prms:action_read(filename,silent,pset_number)
   local function loader_loop(x)
     setmetatable(x,node)
     for _,v in pairs(x.children) do
+      v.parent = x
       loader_loop(v)
     end
   end

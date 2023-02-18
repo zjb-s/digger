@@ -9,10 +9,12 @@ function Node:new(args)
     id = id_counter
     , note = args.note and args.note or 64
     , velocity = args.velocity and args.velocity or 80
+    , mod = args.mod and args.mod or 0
     , duration = args.duration and args.duration or 1
     , counter = args.counter and args.counter or 1
     , children = args.children and args.children or {}
     , pos = args.pos and args.pos or 1
+    , retrig = args.retrig and args.retrig or 0
 		,	is_playhead = false
 		,	selected = false
   }
@@ -24,19 +26,14 @@ function Node:new(args)
   return i
 end
 
--- function Node:load_data_from_table(tbl)
---   self:all_children(function(v)
-    
---   end)
--- end
-
 function Node:delta_attr(attr,delta)
   self:set_attr(attr, self:get_attr(attr) + delta)
 end
 
 function Node:set_attr(attr,new_val)
 	local attr = attr and attr or params:string('view_attr')
-	self[attr] = util.round(util.clamp(new_val,0,127))
+  local max = attr=='retrig' and 1 or 127
+	self[attr] = util.round(util.clamp(new_val,0,max))
 end
 
 function Node:multiply_attr(attr,n)
@@ -73,9 +70,10 @@ function Node:add_child(args,index)
   local index = index and index or #self.children+1
   table.insert(self.children,index,self:new(args))
   self:child(index).parent = self
+  if self.pos == 0 then self.pos = index end
 end
 
-function Node:get_copy()
+function Node:get_copy()  
   local r = self:new{
 		note = self.note
 	,	velocity = self.velocity
@@ -107,12 +105,12 @@ function Node:remove_child(ix)
   end
   table.remove(self.children,ix)
   self.pos = util.clamp(self.pos,1,#self.children)
-  self.pos(util.clamp(1,128))
+  self.pos = (util.clamp(self.pos,1,128))
 end
 
 function Node:advance()
   if self:is_leaf() then
-    return self, true, self.counter==1 
+    return self, true, (self.counter==1 or self.retrig == 1)
   else
     local result, reset, play = self:child():advance()
     if reset then
@@ -133,27 +131,5 @@ function Node:advance()
     end
   end
 end
-
--- function Node:advance()
---   if #self.children > 0 then
---     print(self.id,self.child,self.advance)
---     local result, reset = self:child():advance()
---     if not reset then return result, false end
---     if self:child().counter <= self:child().duration then
---       self:child().counter = self:child().counter + 1
---     else
---       self:child().counter = 1
---       self.pos = self.pos + 1
---     end
---     -- if self.pos > #self.children then
---     --   self.pos = 1
---     --   return result, true
---     -- end
---     return result, false
---   else
---     return self, true
---   end
--- end
-
 
 return Node

@@ -14,8 +14,50 @@ function Graphics:render()
 	self:sidebars()
 	self:post()
 	self:dividers()
+	
+	if context_window.open then self:cw() end
+	-- self:cw()
 
 	screen.update()
+end
+
+function Graphics:cw()
+	screen.level(OFF)
+	screen.rect(4,4,120,56)
+	screen.fill()
+
+	screen.level(MED)
+	screen.line_width(2)
+	screen.rect(4,4,120,56)
+	screen.stroke()
+
+	screen.move(64,12)
+	screen.level(HIGH)
+	screen.text_center(context_window.name)
+
+	screen.move(64,21)
+	screen.level(LOW)
+	screen.text_center(context_window.description)
+
+	for k,v in ipairs(context_window.options) do
+		if k>4 then break end
+		local x = 8
+		local y = (32+(8*(k-1))) + ((4-#context_window.options)*8)
+		screen.level(HIGH)
+		screen.move(x,y)
+		screen.text(k)
+
+		screen.level(LOW)
+		local lx = x + screen.text_extents(k) + 4
+		screen.move(lx, y-2)
+		screen.line_width(1)
+		screen.line_rel((128-x)-(screen.text_extents(v))-20,0)
+		screen.stroke()
+
+		screen.level(MED)
+		screen.move(128-x,y)
+		screen.text_right(v)
+	end
 end
 
 function Graphics:dividers()
@@ -34,7 +76,7 @@ end
 function Graphics:sidebars()
 	for k,v in ipairs(view_attrs) do
 		local x = 0
-		local y = 9 * k
+		local y = 8 * k
 		screen.level(v == params:string('view_attr') and HIGH or LOW)
 		screen.move(x,y)
 		screen.text(v)

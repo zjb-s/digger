@@ -17,12 +17,21 @@ all = {}
 target = {{},{},{}}
 playhead = {}
 id_counter = 0
-view_attrs = {'note','velocity','duration'}
+view_attrs = {'note','velocity','mod','duration','retrig'}
 tbuf = ''
 entering_text = false
-math_symbols = {'=','+','-','*','/'}
+math_symbols = {'=','+','-','*','/','?'}
+math_descriptions = {
+	['='] = 'set'
+,	['+'] = 'add'
+,	['-'] = 'subtract'
+,	['*'] = 'multiply'
+,	['/'] = 'divide'
+,	['?'] = 'randomize by amount'
+}
 post_buffer = 'digger @zbs'
 pset_filename = ''
+shift = false
 
 params.action_write = function(filename, name, pset_number)
 	prms:action_write(filename,name,pset_number)
@@ -69,9 +78,11 @@ function stepper()
 		
 		root:all_children(function(x) x.is_playhead = false end)
 		local playhead, reset, play = root:advance()
-		print(play)
+		-- print(playhead,reset,play)
 		if play then
 			local player = params:lookup_param('voice'):get_player() 
+			player:modulate(playhead.mod/127)
+			-- print(playhead.mod)
 			player:play_note(playhead.note, playhead.velocity/127, 0.01)
 		end
 
@@ -104,13 +115,19 @@ function enter_command(input_str)
 					x:delta_attr(nil,n)
 				end
 			end)
-			-- target[2]:delta_attr(nil,n)
+
 		elseif symbol == '*' then
 			target[2]:multiply_attr(nil,n)
+			post('multiplied '..params:string('view_attr')..' by '..n)
 		elseif symbol == '/' then
 			target[2]:multiply_attr(nil,1/n)
+			post('divided '..params:string('view_attr')..' by '..n)
 		elseif symbol == '=' then
 			target[2]:set_attr(nil,n)
+			post('set '..params:string('view_attr')..' to '..n)
+		elseif symbol == '?' then
+			target[2]:delta_attr(nil,math.random(0-n,n))
+			post('randomized '..params:string('view_attr').. ' +/- '..n)
 		end
 	elseif str == 'save' or str == 'w' or str == 'write' then
 		-- params:write(pset_filename)
@@ -142,21 +159,25 @@ function keyboard.code(code,value)
 end
 
 function enc(n,d)
-	if n == 1 or n == 2 then
-		delta_target(n,d)
-	elseif n == 3 then
-		target[2]:delta_attr(nil,d)
+	if n == 2 or n == 3 then
+		delta_target(n-1,d)
+	elseif n == 1 then
+		if shift then
+			params:delta('view_attr',d)
+		else
+			target[2]:delta_attr(nil,d)
+		end
 	end
 end
 
 function key(n,d)
-	if d == 0 then return end
 
 	if n == 1 then 
+		shift = d==1 
 
-	elseif n == 2 then
+	elseif n == 2 and d == 1 then
 		keyboard.code('LEFT',1)
-	elseif n == 3 then
+	elseif n == 3 and d == 1 then
 		keyboard.code('RIGHT',1)
 	end
 end
