@@ -5,8 +5,7 @@ function Graphics:render()
 	screen.clear()
 	self:draw_column(1)
 	self:draw_column(2)
-	if not target[2]:is_leaf() then 
-		target[3] = target[2]:child(1)
+	if not target:is_leaf() then 
 		self:draw_column(3) 
 	end
 
@@ -16,7 +15,6 @@ function Graphics:render()
 	self:dividers()
 	
 	if context_window.open then self:cw() end
-	-- self:cw()
 
 	screen.update()
 end
@@ -42,8 +40,8 @@ function Graphics:cw()
 	for k,v in ipairs(context_window.options) do
 		if k>4 then break end
 		local x = 8
-		local y = (32+(8*(k-1))) + ((4-#context_window.options)*8)
-		screen.level(HIGH)
+		local y = (24+(8*k)) + ((4-#context_window.options)*8)
+		screen.level(context_window.last_selection==k and HIGH or LOW)
 		screen.move(x,y)
 		screen.text(k)
 
@@ -54,7 +52,7 @@ function Graphics:cw()
 		screen.line_rel((128-x)-(screen.text_extents(v))-20,0)
 		screen.stroke()
 
-		screen.level(MED)
+		screen.level(context_window.last_selection==k and MED or LOW)
 		screen.move(128-x,y)
 		screen.text_right(v)
 	end
@@ -68,8 +66,8 @@ function Graphics:dividers()
 	screen.line(128,55)
 	screen.stroke()
 
-	screen.move(67,55)
-	screen.line(67,0)
+	screen.move(69,55)
+	screen.line(69,0)
 	screen.stroke()
 end
 
@@ -79,15 +77,22 @@ function Graphics:sidebars()
 		local y = 8 * k
 		screen.level(v == params:string('view_attr') and HIGH or LOW)
 		screen.move(x,y)
-		screen.text(v)
-		screen.move(x+37,y)
-		screen.text(target[2][v])
+		screen.text(k..': '..v)
+		screen.move(screen.text_extents(k..': '..v)+4,y-2)
+		screen.line_width(1)
+		screen.level(LOW)
+		screen.line(60-screen.text_extents(target[v]),y-2)
+		screen.stroke()
+		screen.move(64,y)
+		screen.level(v == params:string('view_attr') and HIGH or LOW)
+		-- screen.move(x+37,y)
+		screen.text_right(target[v])
 	end
 	-- screen.level(LOW)
 	-- screen.move(0,36)
 	-- screen.text('children')
 	-- screen.move(37,36)
-	-- screen.text(#target[2].children)
+	-- screen.text(#target.children)
 end
 
 function Graphics:tbuf()
@@ -111,14 +116,27 @@ function Graphics:draw_column(n)
 		local x = 75 + (20*(n-1))
 		local y = 29 + (i*8)
 		local node_to_print
-		if target[n] == root then
+		if target == root then
 			if i == 0 then node_to_print = root end
 		else
-			node_to_print = target[n].parent:child(target[n]:pos_in_parent()+i)
+			if n == 1 then
+				node_to_print = target.parent:get_sibling(i)
+			elseif n == 2 then
+				node_to_print = target:get_sibling(i)
+			elseif n == 3 then
+				node_to_print = target:child(i+4)
+			end
+			-- if n == 1 then
+			-- 	node_to_print = target.parent.parent:child(target.parent:pos_in_parent()+i)
+			-- elseif n == 2 then
+			-- 	node_to_print = target.parent:child(target:pos_in_parent()+i)
+			-- elseif n == 3 then
+			-- 	node_to_print = target:child(i+3)
+			-- end
 		end
 		if node_to_print then
 			screen.move(x,y)
-			screen.level(((node_to_print==target[n]) and n~=3) and HIGH or LOW)
+			screen.level(((node_to_print==target) and n~=3) and HIGH or LOW)
 			if node_to_print.selected then 
 				screen.level(flash)
 			end

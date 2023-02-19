@@ -26,6 +26,18 @@ function Node:new(args)
   return i
 end
 
+function Node:get_sibling(offset)
+  if self == root and offset ~= 0 then 
+    return nil 
+  else
+    if offset==0 then 
+      return self
+    else
+	    return self.parent:child(self:pos_in_parent()+offset)
+    end
+  end
+end
+
 function Node:delta_attr(attr,delta)
   self:set_attr(attr, self:get_attr(attr) + delta)
 end
@@ -94,13 +106,13 @@ function Node:remove_child(ix)
     post('can\'t delete last node')
     return
   end
-  if self:child(ix) == target[2] then
+  if self:child(ix) == target then
     if ix < #self.children then
-      target[2] = self:child(ix+1)
+      target = self:child(ix+1)
     elseif #self.children == 1 then
       keyboard.code('LEFT',1)
     else
-      target[2] = self:child(#self.children-1)
+      target = self:child(#self.children-1)
     end
   end
   table.remove(self.children,ix)

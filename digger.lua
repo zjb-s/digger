@@ -1,3 +1,36 @@
+-- ------------ digger -------------
+-- 
+-- v0.1 @zbs
+--
+-- branching tracker
+-- HID keyboard required
+--
+--   \/\/ controls below \/\/
+--
+-- ARROWS/HJKL: traverse
+-- SHIFT+ARROWS: select nodes
+-- SPACE: play/pause
+-- ENTER: select single node
+-- BACKSPACE: delete node
+-- ESC: back/cancel/exit
+--
+-- 1,2,3,4,5: select attribute
+-- Q/A: inc/dec attribute
+-- X: cut selection
+-- C: copy selection
+-- V: paste selection
+-- N: create node
+--
+-- MATH: apply function to 
+--        selected attr of 
+--        selected nodes
+-- [=]: set
+-- [+]: add
+-- [-]: subtract
+-- [*]: multiply
+-- [/]: divide
+-- [?]: randomize
+
 node = include('lib/node')
 context_window = include('lib/context_window')
 key_input = include('lib/key_input')
@@ -14,10 +47,11 @@ HIGH=12
 flash = LOW
 root = prms.loaded_table and prms.loaded_table or {}
 all = {}
-target = {{},{},{}}
+target = {}
 playhead = {}
 id_counter = 0
 view_attrs = {'note','velocity','mod','duration','retrig'}
+new_node_options = {'before','after','split','as child'}
 tbuf = ''
 entering_text = false
 math_symbols = {'=','+','-','*','/','?'}
@@ -32,6 +66,8 @@ math_descriptions = {
 post_buffer = 'digger @zbs'
 pset_filename = ''
 shift = false
+selected_nodes = {}
+clipboard = {}
 
 params.action_write = function(filename, name, pset_number)
 	prms:action_write(filename,name,pset_number)
@@ -64,9 +100,7 @@ function init()
 	nb:init()
 	prms:add()
 	init_root()
-	target[1] = root
-	target[2] = target[1]:child()
-	target[3] = nil
+	target = root:child()
 	clock.run(stepper)
 	visual_metro = metro.init(update_visuals,1/15,-1)
 	visual_metro:start()
@@ -75,21 +109,22 @@ end
 function stepper()
 	while true do
 		clock.sync(1/4)
-		
-		root:all_children(function(x) x.is_playhead = false end)
-		local playhead, reset, play = root:advance()
-		-- print(playhead,reset,play)
-		if play then
-			local player = params:lookup_param('voice'):get_player() 
-			player:modulate(playhead.mod/127)
-			-- print(playhead.mod)
-			player:play_note(playhead.note, playhead.velocity/127, 0.01)
-		end
+		if params:get('playing') == 1 then
+			root:all_children(function(x) x.is_playhead = false end)
+			local playhead, reset, play = root:advance()
+			-- print(playhead,reset,play)
+			if play then
+				local player = params:lookup_param('voice'):get_player() 
+				player:modulate(playhead.mod/127)
+				-- print(playhead.mod)
+				player:play_note(playhead.note, playhead.velocity/127, 0.01)
+			end
 
-		local t = playhead
-		while t ~= root do
-			t.is_playhead = true
-			t = t.parent
+			local t = playhead
+			while t ~= root do
+				t.is_playhead = true
+				t = t.parent
+			end
 		end
 	end
 end
@@ -100,38 +135,45 @@ function redraw() screen_graphics:render() end
 function enter_command(input_str)
 	entering_text = false
 	local str = input_str
-	if string.sub(str,1,1) == ':' then
-		str = string.sub(input_str,2,-1)
-	end
+	-- if string.sub(str,1,1) == ':' then
+	-- 	str = string.sub(input_str,2,-1)
+	-- end
 	str = string.lower(str)
 	
 	if tab.contains(math_symbols,string.sub(str,1,1)) and tonumber(string.sub(str,2,-1)) then
 		local n = tonumber(string.sub(str,2,-1))
 		local symbol = string.sub(str,1,1)
-		if symbol == '+' or symbol == '-' then
-			if symbol=='-' then n=0-n end
-			root:all_children(function(x)
-				if x.selected or target[2]==x then 
-					x:delta_attr(nil,n)
-				end
-			end)
-
+		local name = params:string('view_attr')
+		local func, str
+		if symbol == '+' then
+			func = node.delta_attr
+			str = 'added '..n.. ' to '..name
+		elseif symbol == '-' then
+			func = node.delta_attr
+			n = 0 - n
+			str = 'subtracted '..n..' from '..name
 		elseif symbol == '*' then
-			target[2]:multiply_attr(nil,n)
-			post('multiplied '..params:string('view_attr')..' by '..n)
+			func = node.multiply_attr
+			str = 'multiplied '..name.. ' by '..n
 		elseif symbol == '/' then
-			target[2]:multiply_attr(nil,1/n)
-			post('divided '..params:string('view_attr')..' by '..n)
+			func = node.multiply_attr
+			n = 1 / n
+			str = 'divided '..name..' by '..n
 		elseif symbol == '=' then
-			target[2]:set_attr(nil,n)
-			post('set '..params:string('view_attr')..' to '..n)
+			func = node.set_attr
+			str = 'set '..name..' to '..n
 		elseif symbol == '?' then
-			target[2]:delta_attr(nil,math.random(0-n,n))
-			post('randomized '..params:string('view_attr').. ' +/- '..n)
+			-- target:delta_attr(nil,math.random(0-n,n))
+			func = node.delta_attr
+			n = math.random(0-n, n)
+			str = 'randomized '..name..' by +/- '..n
 		end
-	elseif str == 'save' or str == 'w' or str == 'write' then
-		-- params:write(pset_filename)
-		-- todo
+
+		root:all_children(function(x) 
+			if x.selected or x == target then
+				func(x,name,n)
+			end
+		end)
 	else
 		entering_text = true
 		post('not a command')
@@ -142,12 +184,9 @@ function enter_command(input_str)
 	end
 end
 
-function delta_target(n,d)
-	if n == 1 then
-		target[1] = target[1].parent:child(util.clamp(target[1]:pos_in_parent()+d,1,#target[1].parent.children))
-		target[2] = target[1]:child(util.clamp(target[2]:pos_in_parent(),1,#target[1].children))
-	elseif n == 2 then
-		target[2] = target[1]:child(util.clamp(target[2]:pos_in_parent()+d,1,#target[1].children))
+function delta_target(d)
+	if target:get_sibling(d) then
+		target = target:get_sibling(d)
 	end
 end
 
@@ -159,14 +198,12 @@ function keyboard.code(code,value)
 end
 
 function enc(n,d)
-	if n == 2 or n == 3 then
-		delta_target(n-1,d)
-	elseif n == 1 then
-		if shift then
-			params:delta('view_attr',d)
-		else
-			target[2]:delta_attr(nil,d)
-		end
+	if n == 1 then
+		params:delta('view_attr',d)
+	elseif n == 2 then
+		delta_target(d)
+	elseif n == 3 then
+		target:delta_attr(nil,d)
 	end
 end
 

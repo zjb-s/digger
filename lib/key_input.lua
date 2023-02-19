@@ -2,39 +2,15 @@ keys = {}
 
 function keys:char(input_ch)
   -- print('char',input_ch)
-	if input_ch == ':' or tab.contains(math_symbols,input_ch) then
+
+	if tab.contains(math_symbols,input_ch) then
 		post(math_descriptions[input_ch])
 		entering_text = true
 	end
+
 	if entering_text then
 		tbuf = tbuf..input_ch
 		return
-	end
-	
-	local ch = string.lower(input_ch)
-	if ch == 'q' or ch == 'a' then
-		params:delta('view_attr',ch=='a' and 1 or -1)
-		post('scroll selected value')
-	elseif ch == 'w' or ch == 's' then
-		local d = ch=='w' and 1 or -1
-		target[2]:delta_attr(params:string('view_attr'),d)
-		post((d==1 and 'in' or 'de')..'crement '..params:string('view_attr'))
-	-- elseif ch == 'h' then
-	-- 	self:code('LEFT',1)
-	-- elseif ch == 'j' then
-	-- 	self:code('DOWN',1)
-	-- elseif ch == 'k' then
-	-- 	self:code('UP',1)
-	-- elseif ch == 'l' then
-	-- 	self:code('RIGHT',1)
-	elseif ch == 'n' then
-		if keyboard.shift() then
-			post('add child')
-			target[2]:add_child()
-		else
-			post('duplicate node')
-			table.insert(target[2].parent.children, target[2]:pos_in_parent()+1, target[2]:get_copy())
-		end
 	end
 end
 
@@ -47,41 +23,115 @@ function keys:code(code, value)
 	elseif value==1 and (code=='RIGHT' or code=='L') then
 		self:right()
 	elseif value==1 and code=='ENTER' then
-		enter_command(tbuf)
+		self:enter()
 	elseif value==1 and code=='BACKSPACE' then
 		self:backspace()
 	elseif value==1 and code=='ESC' then
 		self:escape()
 	elseif value==1 and code=='SPACE' then
-		target[2].selected = not target[2].selected
+		params:delta('playing',1)
+	elseif value==1 and tonumber(code) then
+		self:numbers(code)
+	elseif value==1 and (code=='Q' or code=='A') then
+		self:incdec(code=='Q' and 1 or -1)
+	elseif code=='N' then
+		self:new_node(code,value)
+	elseif value==1 and (code=='X' or code=='C' or code=='V') then
+		self:clipboard(code)
+	end
+end
+
+function keys:incdec(d)
+	root:all_children(function(x) 
+		if x.selected or x == target then
+			x:delta_attr(nil,d)
+		end
+	end)
+	post((d==1 and 'in' or 'de')..'crement attribute')
+end
+
+function keys:clipboard(code)
+	if code=='X' then
+		clipboard = {}
+		for _,v in ipairs(selected_nodes) do
+			table.insert(clipboard,v)
+			v.parent:remove_child(v:pos_in_parent())
+		end
+		post('cut node/s')
+	elseif code=='C' then
+		clipboard = {}
+		for _,v in ipairs(selected_nodes) do
+			table.insert(clipboard,v)
+		end
+		post('copied node/s')
+	elseif code=='V' then
+		for _,v in ipairs(clipboard) do
+			table.insert(target.parent.children, target:pos_in_parent(), v:get_copy())
+		end
+		post('pasted node/s')
+	end
+
+	root:all_children(function(x) x.selected = false end)
+	selected_nodes = {}
+end
+
+function keys:enter()
+	if #tbuf > 0 then
+		enter_command(tbuf)
+	else
+		target.selected = not target.selected
+	end
+end
+
+function keys:new_node(code,value)
+	if value == 1 then
+		context_window:new_node()
+	elseif value == 0 and context_window.open then
+		context_window:close()
+	end
+end
+
+function keys:numbers(code)
+	if context_window.open then
+		context_window.last_selection = util.clamp(tonumber(code),1,#context_window.options)
+	elseif not entering_text then
+		params:set('view_attr',tonumber(code))
+		post('selected '..params:string('view_attr'))
 	end
 end
 
 function keys:updown(code)
-	local tn = keyboard.shift() and 1 or 2
-	local d = (code=='UP' or code=='k') and -1 or 1
-	delta_target(tn,d)
-	post('traverse tree')
+	local d = (code=='UP' or code=='K') and -1 or 1
+	if keyboard.shift() then
+		-- table.insert(selected_nodes, target:pos_in_parent(), target)
+		selected_nodes[target:pos_in_parent()] = target
+		target.selected = true
+	end
+	delta_target(d)
+	if keyboard.shift() then
+		-- table.insert(selected_nodes, target:pos_in_parent(), target)
+		selected_nodes[target:pos_in_parent()] = target
+		target.selected = true
+	end
+	post(keyboard.shift() and 'select node' or 'traverse tree')
 end
 
 function keys:left()
-	if target[1] == root then 
+	if target.parent == root then 
 		post('can\'t go up - at root')
 		return 
 	end
-	target[2] = target[1]
-	target[1] = target[1].parent
+	target = target.parent
 	post('ascend tree')
 	root:all_children(function(x) x.selected = false end)
 end
 
 function keys:right()
-	if target[2]:is_leaf() then 
-		post('can\'t go down - at bottom')
+	if target:is_leaf() then 
+		post('can\'t go down - at leaf')
 		return 
 	end
-	target[1] = target[2]
-	target[2] = target[2]:child(#target[2].children)
+	target = target:child(util.round(#target.children/2))
 	post('descend tree')
 	root:all_children(function(x) x.selected = false end)
 end
@@ -90,20 +140,19 @@ function keys:backspace()
 	if entering_text then
 		tbuf = string.sub(tbuf,1,-2)
 	else
-		target[2].parent:remove_child(target[2]:pos_in_parent())
+		target.parent:remove_child(target:pos_in_parent())
 	end
 end
 
 function keys:escape()
-if context_window.open then
-	context_window.open = false
+	if context_window.open then
+		context_window:close(true)
+	elseif #tbuf > 0 then
+		tbuf = ''
+		entering_text = false
 	else
-		if #tbuf > 0 then
-			tbuf = ''
-			entering_text = false
-		else
-			root:all_children(function(x) x.selected = false end)
-		end
+		root:all_children(function(x) x.selected = false end)
+		selected_nodes = {}
 	end
 end
 

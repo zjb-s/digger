@@ -25,8 +25,7 @@ function Prms:action_read(filename,silent,pset_number)
 
   loader_loop(l)
   root = l
-  target[1] = root
-  target[2] = target[1]:child()
+  target = root:child()
 end
 
 function Prms:action_delete(filename,name,pset_number)
@@ -38,7 +37,9 @@ function Prms:add()
   nb:add_player_params()
   params:add_separator('DIGGER')
   nb:add_param('voice','voice')
+	params:add_binary('playing','playing?','toggle',0)
   params:add_option('view_attr','view_attr',view_attrs,1)
+	params:add_option('new_node_location','new node location',new_node_options,1)
 end
 
 return Prms
