@@ -13,24 +13,6 @@
 -- ENTER: select single node
 -- BACKSPACE: delete node
 -- ESC: back/cancel/exit
---
--- 1,2,3,4,5: select attribute
--- Q/A: inc/dec attribute
--- X: cut selection
--- C: copy selection
--- V: paste selection
--- N: create node
--- B: bundle nodes
---
--- MATH: apply function to 
---        selected attr of 
---        selected nodes
--- [=]: set
--- [+]: add
--- [-]: subtract
--- [*]: multiply
--- [/]: divide
--- [?]: randomize
 
 node = include('lib/node')
 context_window = include('lib/context_window')
@@ -89,11 +71,14 @@ end
 function init_root()
 	root = node:new()
 	root.parent = 'none'
-	for i=1,3 do 
-		root:add_child()
-		for j=1,5 do
-			root.children[i]:add_child()
-		end
+	-- for i=1,3 do 
+	-- 	root:add_child()
+	-- 	for j=1,5 do
+	-- 		root.children[i]:add_child()
+	-- 	end
+	-- end
+	for _,v in ipairs{64, 66, 67, 71, 69, 71} do
+		root:add_child{note=v}
 	end
 end
 

@@ -25,10 +25,10 @@ function cw:new_node()
 		elseif loc == 'split' then
 			local old_target = target
 			target = target.parent:add_child(target:get_copy(), target:pos_in_parent()+1)
+			old_target:multiply_attr('duration',0.499)
 			target:multiply_attr('duration',0.499)
-			target:get_sibling(1):multiply_attr('duration',0.499)
 			if old_target.duration % 2 == 1 then
-				target:delta_attr('duration',1)
+				old_target:delta_attr('duration',1)
 			end
 			post('split target')
 		elseif loc == 'as child' then
