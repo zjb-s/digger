@@ -26,6 +26,13 @@ function Node:new(args)
   return i
 end
 
+-- function Node:select(bool)
+-- 	if bool == nil then bool = true end
+-- 	self.selected = bool
+-- 	print(bool and self or nil)
+-- 	selected_nodes[self:pos_in_parent()] = bool and self or nil
+-- end
+
 function Node:get_sibling(offset)
   if self == root and offset ~= 0 then 
     return nil 
@@ -33,7 +40,11 @@ function Node:get_sibling(offset)
     if offset==0 then 
       return self
     else
-	    return self.parent:child(self:pos_in_parent()+offset)
+      if self.parent:child(self:pos_in_parent()+offset) then
+	      return self.parent:child(self:pos_in_parent()+offset)
+      else
+        return nil
+      end
     end
   end
 end
@@ -71,18 +82,20 @@ function Node:child(index)
 end
 
 function Node:all_children(func)
-	func(self)
 	for k,v in pairs(self.children) do
+		func(v)
 		v:all_children(func)
 	end
 end
 
 function Node:add_child(args,index)
   local args = args and args or {}
-  local index = index and index or #self.children+1
-  table.insert(self.children,index,self:new(args))
+  local index = util.clamp(index and index or #self.children+1,1,127)
+  local obj = (args.new and args or self:new(args))
+  table.insert(self.children,index,obj)
   self:child(index).parent = self
   if self.pos == 0 then self.pos = index end
+  return self:child(index)
 end
 
 function Node:get_copy()  
@@ -90,6 +103,7 @@ function Node:get_copy()
 		note = self.note
 	,	velocity = self.velocity
 	,	duration = self.duration
+	,	retrig = self.retrig
 	,	counter = 1
 	,	children = {}
 	,	pos = 1
@@ -121,27 +135,29 @@ function Node:remove_child(ix)
 end
 
 function Node:advance()
-  if self:is_leaf() then
-    return self, true, (self.counter==1 or self.retrig == 1)
-  else
-    local result, reset, play = self:child():advance()
-    if reset then
-      if self:child().counter < self:child().duration then
-        self:child().counter = self:child().counter + 1
-      else
-        self:child().counter = 1
-        self.pos = self.pos + 1
-      end
-      if self.pos > #self.children then
-        self.pos = 1
-        return result, true, play
-      else
-        return result, false, play
-      end
-    else
-      return result, false, play
-    end
+	if self:is_leaf() then
+		return self, true, ((self.counter==1 or self.retrig == 1) and (self.duration > 0))
   end
+
+	local result, reset, play = self:child():advance()
+
+	if not reset then 
+		return result, false, play 
+	end
+
+	if self:child().counter < self:child().duration then
+		self:child().counter = self:child().counter + 1
+	else
+		self:child().counter = 1
+		self.pos = self.pos + 1
+	end
+
+	if self.pos > #self.children then
+		self.pos = 1
+		return result, true, play
+	end
+
+	return result, false, play
 end
 
 return Node

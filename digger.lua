@@ -20,6 +20,7 @@
 -- C: copy selection
 -- V: paste selection
 -- N: create node
+-- B: bundle nodes
 --
 -- MATH: apply function to 
 --        selected attr of 
@@ -66,7 +67,7 @@ math_descriptions = {
 post_buffer = 'digger @zbs'
 pset_filename = ''
 shift = false
-selected_nodes = {}
+-- selected_nodes = {}
 clipboard = {}
 
 params.action_write = function(filename, name, pset_number)
@@ -112,9 +113,17 @@ function stepper()
 		if params:get('playing') == 1 then
 			root:all_children(function(x) x.is_playhead = false end)
 			local playhead, reset, play = root:advance()
+			local old_node = playhead
+			while playhead.duration == 0 do
+				playhead, reset, play = root:advance()
+				if playhead == old_node then
+					-- if we've wrapped all the way around, just step forward anyway
+					break
+				end
+			end
 			-- print(playhead,reset,play)
 			if play then
-				local player = params:lookup_param('voice'):get_player() 
+				local player = params:lookup_param('voice'):get_player()
 				player:modulate(playhead.mod/127)
 				-- print(playhead.mod)
 				player:play_note(playhead.note, playhead.velocity/127, 0.01)
@@ -188,6 +197,22 @@ function delta_target(d)
 	if target:get_sibling(d) then
 		target = target:get_sibling(d)
 	end
+end
+
+function get_selected_nodes(obj)
+	local obj = obj and obj or root
+	local r = {}
+	obj:all_children(function(v)
+		if v.selected or v == target then
+			table.insert(r,v)
+		end
+	end)
+	return r
+end
+
+function deselect_all(obj)
+	local obj = obj and obj or root
+	obj:all_children(function(v) v.selected = false end)
 end
 
 function keyboard.char(input_ch) 

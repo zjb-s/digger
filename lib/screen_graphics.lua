@@ -124,7 +124,7 @@ function Graphics:draw_column(n)
 			elseif n == 2 then
 				node_to_print = target:get_sibling(i)
 			elseif n == 3 then
-				node_to_print = target:child(i+4)
+				node_to_print = target:child(i)
 			end
 			-- if n == 1 then
 			-- 	node_to_print = target.parent.parent:child(target.parent:pos_in_parent()+i)
@@ -155,8 +155,8 @@ function Graphics:draw_column(n)
 			screen.text(str)
 	
 			if node_to_print.is_playhead then
-				screen.move(x-4,y)
-				screen.text(':')
+				screen.move(x-6,y)
+				screen.text('@')
 			end
 		end
 	end
